@@ -1,6 +1,6 @@
 #!/sbin/openrc-run
 
-: ${SUBCFGDIR:=/opt/docker-compose}
+: ${SUBCFGDIR:=/opt/dockerservice}
 DOCKER_COMPOSE_UP_ARGS=${DOCKER_COMPOSE_UP_ARGS-"--no-build --no-recreate --no-deps"}
 
 SUBSVC="${SVCNAME#*.}"
