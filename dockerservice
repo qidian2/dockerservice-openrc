@@ -1,18 +1,17 @@
 #!/sbin/openrc-run
 
-: ${SUBCFGDIR:=/root/docker}
+: ${SUBCFGDIR:=/opt/docker-compose}
 DOCKER_COMPOSE_UP_ARGS=${DOCKER_COMPOSE_UP_ARGS-"--no-build --no-recreate --no-deps"}
 
 SUBSVC="${SVCNAME#*.}"
 [ -z "${SUBSVC}" ] && exit 1
-: ${SUBCFG:="${SUBCFGDIR}/${SUBSVC}/docker-compose.yml"}
+: ${SUBCFG:="${SUBCFGDIR}/${SUBSVC}"}
 DOCOCMD="/usr/bin/docker-compose"
-export COMPOSE_HTTP_TIMEOUT=300
 
-description="Manage docker services defined in ${SUBCFG}"
+description="Manage docker service in ${SUBCFG}"
 extra_commands="configtest build"
-description_configtest="Check configuration via \"docker-compose -f ${SUBCFG} config\""
-description_build="Run \"docker-compose -f ${SUBCFG} build\""
+description_configtest="Check configuration via \"cd ${SUBCFG} && docker-compose config\""
+description_build="Run \"cd ${SUBCFG} && docker-compose build\""
 
 depend() {
   need localmount net docker
@@ -21,11 +20,12 @@ depend() {
 }
 
 configtest() {
-  if ! [ -f "${SUBCFG}" ]; then
-    eerror "The config file ${SUBCFG} does not exist!"
+  if ! [ -d "${SUBCFG}" ]; then
+    eerror "The service directory ${SUBCFG} does not exist!"
     return 1
   fi
-  if "${DOCOCMD}" -f "${SUBCFG}" config >&/dev/null; then
+  cd "${SUBCFG}"
+  if "${DOCOCMD}" config >&/dev/null; then
     einfo "config: ok"
   else
     eerror "config: error"
@@ -36,29 +36,37 @@ configtest() {
 build() {
   configtest || return 1
   ebegin "Building dockerservice ${SUBSVC}"
-  "${DOCOCMD}" -f "${SUBCFG}" build
+  cd "${SUBCFG}" && "${DOCOCMD}" build
   eend $?
 }
 
 start() {
   configtest || return 1
   ebegin "Starting dockerservice ${SUBSVC}"
-  "${DOCOCMD}" -f "${SUBCFG}" up -d ${DOCKER_COMPOSE_UP_ARGS}
+  cd "${SUBCFG}" && "${DOCOCMD}" up -d ${DOCKER_COMPOSE_UP_ARGS}
   eend $?
 }
 
 stop() {
+  if ! [ -d "${SUBCFG}" ]; then
+    eerror "The service directory ${SUBCFG} does not exist!"
+    return 1
+  fi
   ebegin "Stopping dockerservice ${SUBSVC}"
-  "${DOCOCMD}" -f "${SUBCFG}" stop --timeout=300
+  cd "${SUBCFG}" && "${DOCOCMD}" stop
   eend $?
 }
 
 status() {
-  if [ "$("${DOCOCMD}" -f "${SUBCFG}" top | wc -l)" -gt "0" ]; then
+  if ! [ -d "${SUBCFG}" ]; then
+    eerror "The service directory ${SUBCFG} does not exist!"
+    return 1
+  fi
+  cd "${SUBCFG}"
+  if [ "$("${DOCOCMD}" ps | wc -l)" -gt "0" ]; then
     einfo "status: started"
   else
     einfo "status: stopped"
     return 3
   fi
 }
-
